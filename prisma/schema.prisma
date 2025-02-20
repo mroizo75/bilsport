@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LicenseCategory {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  subTypes    LicenseSubType[]
+}
+
+model LicenseSubType {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal
+  categoryId  String
+  category    LicenseCategory @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  licenses    License[]
+}
+
+model License {
+  id            String    @id @default(cuid())
+  subTypeId     String
+  subType       LicenseSubType @relation(fields: [subTypeId], references: [id])
+  category      String
+  name          String
+  description   String
+  price         Decimal
+  validFrom     DateTime?
+  validTo       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relasjoner
+  orders        Order[]
+}
+
+model Club {
+  id        String   @id @default(cuid())
+  name      String
+  shortName String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Order Order[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String?
+  phone         String?
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("USER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  resetToken    String?
+  resetTokenExpiry DateTime?
+
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+}
+
+model Order {
+  id            String    @id @default(cuid())
+  transactionId String?   @unique
+  orderId       String    @unique // ORDER-timestamp for Nets
+  licenseId     String
+  userId        String
+  clubId        String
+  status        String    @default("pending") // pending, completed, failed
+  totalAmount   Decimal
+  driverName    String
+  vehicleReg    String?
+  validFrom     DateTime
+  validTo       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Betalingsinformasjon
+  customerEmail String?
+  customerPhone String?
+  paymentStatus String?   // For Nets betalingsstatus
+  paymentMethod String?   // Kort, Vipps, etc.
+  
+  // Relasjoner
+  license       License   @relation(fields: [licenseId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  club          Club     @relation(fields: [clubId], references: [id])
+  orderDate     DateTime  // Dato ordren er for
+}
+
+// Prisliste for hver lisenstype
+model PriceList {
+  id          String   @id @default(cuid())
+  category    String
+  subType     String
+  price       Decimal
+  validFrom   DateTime
+  validTo     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OrderCounter {
+  id        String   @id @default("counter")
+  sequence  Int      @default(0)
+} 
