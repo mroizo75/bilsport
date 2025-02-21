@@ -8,6 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const SALES_TERMS = `
 
@@ -130,17 +131,17 @@ export function TermsDialog() {
           salgsbetingelsene
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
+      <DialogContent className="max-w-3xl max-h-[80vh] p-6">
         <DialogHeader>
           <DialogTitle>Salgsbetingelser</DialogTitle>
         </DialogHeader>
-        <div className="overflow-y-auto pr-6 -mr-6">
-          <div className="prose prose-sm max-w-none">
+        <ScrollArea className="h-[calc(80vh-8rem)] pr-6">
+          <div className="prose prose-sm dark:prose-invert">
             <div className="whitespace-pre-line">
               {SALES_TERMS}
             </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )

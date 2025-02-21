@@ -136,10 +136,6 @@ export default function CheckoutPage() {
 
     setIsLoading(true)
     try {
-      console.log("1. Starting payment process")
-      console.log("2. Cart items:", JSON.stringify(items, null, 2))
-      
-      // Konverter handlekurvens items til riktig format for API-et
       const licenses = items.map(item => ({
         licenseId: item.licenseId,
         clubId: item.clubId,
@@ -152,8 +148,6 @@ export default function CheckoutPage() {
         subType: item.subType,
         vehicleReg: item.vehicleReg
       }))
-
-      console.log("3. Prepared licenses:", JSON.stringify(licenses, null, 2))
 
       const response = await fetch("/api/payment", {
         method: "POST",
@@ -173,11 +167,21 @@ export default function CheckoutPage() {
       })
 
       const data = await response.json()
-      console.log("4. Response data:", data)
       
       if (data.error) {
         throw new Error(data.error)
       }
+
+      // Opprett ordre først når betalingen er initiert
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licenses,
+          totalAmount: total,
+          status: "PENDING"
+        })
+      })
 
       window.location.href = data.checkoutUrl
       
@@ -185,9 +189,10 @@ export default function CheckoutPage() {
       console.error("Payment error:", error)
       toast({
         title: "Betalingen feilet",
-        description: (error as Error).message || "Kunne ikke starte betalingsprosessen. Prøv igjen senere.",
+        description: (error as Error).message || "Kunne ikke starte betalingsprosessen.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }
@@ -200,7 +205,7 @@ export default function CheckoutPage() {
           <div className="flex justify-end">
             <Button 
               variant="outline"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/products")}
               className="mb-4"
             >
               Fortsett å handle
@@ -416,21 +421,7 @@ export default function CheckoutPage() {
           </AnimatePresence>
         </div>
 
-        <div className="mt-4">
-          <p className="text-sm text-muted-foreground">
-            Ved å klikke “Bekreft kjøp” samtykker du til våre <TermsDialog />.
-          </p>
-        </div>
-
-        <div className="mt-4">
-          <Button 
-            className="w-full"
-            onClick={handlePayment}
-            disabled={!acceptedTerms || !isPhoneValid(phone) || isLoading}
-          >
-            Bekreft kjøp
-          </Button>
-        </div>
+        
       </div>
     </Shell>
   )

@@ -1,20 +1,17 @@
 import ProductList from "@/components/products/product-list"
-import { Shell } from "@/components/shell"
 
 export default function ProductsPage() {
   return (
-    <Shell>
-      <div className="container space-y-8 p-4 sm:p-6 lg:p-8">
-        <div className="flex flex-col items-center space-y-4">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center">
-            Bilsportlisenser
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base text-center max-w-[700px]">
-            Velg lisensen som passer for deg
-          </p>
-        </div>
-        <ProductList />
+    <div className="container py-8 space-y-8">
+      <div className="text-center space-y-2">
+        <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+          Engangslisenser
+        </h1>
+        <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+          Velg lisensen som passer for deg
+        </p>
       </div>
-    </Shell>
+      <ProductList />
+    </div>
   )
 } 

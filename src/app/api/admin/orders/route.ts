@@ -3,8 +3,25 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 
+// Legg til en funksjon som fjerner gamle PENDING-ordrer
+async function cleanupPendingOrders() {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000) // 1 time
+  
+  await prisma.order.deleteMany({
+    where: {
+      status: "PENDING",
+      createdAt: {
+        lt: oneHourAgo
+      }
+    }
+  })
+}
+
 export async function GET() {
   try {
+    // Rydd opp i gamle PENDING-ordrer første
+    await cleanupPendingOrders()
+    
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id || session.user.role !== "ADMIN") {

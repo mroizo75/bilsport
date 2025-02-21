@@ -52,20 +52,20 @@ function LoginForm() {
   }
 
   return (
-    <div className="container flex min-h-[80vh] w-full flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+    <div className="container flex min-h-[80vh] w-full flex-col items-center justify-center px-4 sm:px-0">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-4 sm:space-y-6 max-w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
             Logg inn på din konto
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Skriv inn din e-post og passord nedenfor
           </p>
         </div>
 
         <div className="grid gap-6">
           <form onSubmit={onSubmit}>
-            <div className="grid gap-2">
+            <div className="grid gap-3 sm:gap-2">
               <div className="grid gap-1">
                 <Label htmlFor="email">E-post</Label>
                 <Input
@@ -77,6 +77,7 @@ function LoginForm() {
                   autoComplete="email"
                   autoCorrect="off"
                   disabled={isLoading}
+                  className="h-9 sm:h-10"
                 />
               </div>
               <div className="grid gap-1">

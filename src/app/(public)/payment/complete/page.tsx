@@ -51,17 +51,20 @@ function CompletePageContent() {
 
       try {
         setIsVerified(true)
-        console.log("1. Starter verifisering av betaling")
         const response = await fetch(`/api/payment?paymentId=${paymentId}`)
         if (!response.ok) {
           throw new Error(`Betalingsverifisering feilet: ${response.statusText}`)
         }
         
         const data = await response.json()
-        console.log("2. Betalingsdata mottatt:", data)
         
         if (data.error) {
           throw new Error(data.error)
+        }
+
+        if (data.status === "COMPLETED") {
+          clearCart()
+          setOrders(data.orders || [])
         }
 
         if (!data.orderIds || data.orderIds.length === 0) {
@@ -81,27 +84,27 @@ function CompletePageContent() {
 
         // Sett ordredetaljene først
         setOrders(orderDetails)
-        console.log("3. Ordre detaljer satt")
         
-        // Tøm handlekurv etter at ordrene er satt
-        clearCart()
-        console.log("4. Handlekurv tømt")
-        
+        toast({
+          title: "Betaling fullført",
+          description: "Din bestilling er bekreftet",
+        })
+
       } catch (error) {
-        setIsVerified(false)
         console.error("Feil ved verifisering:", error)
         toast({
           title: "Betalingsverifisering feilet",
           description: error instanceof Error ? error.message : "Ukjent feil",
           variant: "destructive",
         })
+        router.push("/checkout")
       } finally {
         setIsLoading(false)
       }
     }
 
     verifyPayment()
-  }, [paymentId, clearCart, toast, isVerified])
+  }, [paymentId, isVerified, router, toast, clearCart])
 
   const handleDownloadReceipt = async () => {
     if (orders.length === 0 || !receiptRefs.current.length) return
@@ -339,7 +342,7 @@ function CompletePageContent() {
   )
 }
 
-export default function CompletePage() {
+export default function PaymentCompletePage() {
   return (
     <Suspense
       fallback={

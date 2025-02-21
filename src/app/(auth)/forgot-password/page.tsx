@@ -48,23 +48,24 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="container flex min-h-[80vh] w-full flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+    <div className="container flex min-h-[80vh] w-full flex-col items-center justify-center px-4 sm:px-0">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-4 sm:space-y-6 max-w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Glemt passord?</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Glemt passord?</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Skriv inn e-postadressen din for å tilbakestille passordet
           </p>
         </div>
 
         <form onSubmit={onSubmit}>
-          <div className="grid gap-2">
+          <div className="grid gap-3 sm:gap-2">
             <Input
               type="email"
               placeholder="din@epost.no"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="h-9 sm:h-10"
             />
             <Button className="w-full" type="submit" disabled={isLoading}>
               {isLoading ? "Sender..." : "Send tilbakestillings-e-post"}
