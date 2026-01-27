@@ -3,12 +3,14 @@ import { db } from "@/lib/db"
 
 export async function GET(
   req: Request,
-  { params }: { params: { licenseId: string } }
+  { params }: { params: Promise<{ licenseId: string }> }
 ) {
   try {
+    const { licenseId } = await params
+    
     const license = await db.license.findUnique({
       where: {
-        id: params.licenseId
+        id: licenseId
       },
       select: {
         id: true,

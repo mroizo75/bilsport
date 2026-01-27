@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
@@ -30,8 +31,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# logs
+logs
+*.log
+
 # env files (can opt-in for committing if needed)
 .env*
+
+# markdown documentation
+/markdown
 
 # vercel
 .vercel
@@ -39,3 +47,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test/Debug endpoints
+src/app/api/chat/debug/
+src/app/api/chat/test/
+
+# Generated PDFs (optional - uncomment if you generate PDFs locally)
+# *.pdf
+# /generated-pdfs/
+

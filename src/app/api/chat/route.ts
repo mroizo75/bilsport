@@ -1,130 +1,52 @@
 import { OpenAI } from "openai"
 import { NextResponse } from "next/server"
-import { rateLimiter } from "@/lib/rate-limit"
+import { prisma } from "@/lib/prisma"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const SYSTEM_PROMPT = `Du er en spesialisert lisensrådgiver for Bilsportlisens.no som KUN håndterer engangslisenser.
+// Enkelt system prompt
+const SYSTEM_PROMPT = `Du er en hjelpsom lisensrådgiver for bilsport.
 
-VIKTIG: Du skal BARE svare på spørsmål om engangslisenser. 
-For alle andre typer lisenser (årslisenser, faste lisenser etc.), svar:
-"Beklager, jeg kan kun hjelpe med engangslisenser. For andre typer lisenser, vennligst kontakt NBF direkte."
+PRISER:
+- Banedag: 220 kr
+- Trening: 220 kr  
+- Test: 220 kr
+- Konkurranse: 350 kr
+- Passasjer: 220 kr
 
-Følgende kategorier er tilgjengelige:
+VIKTIG: Når bruker vil bestille eller sier "ja takk", returner:
+1. En kort tekst
+2. Deretter JSON på egen linje: {"action":"order","category":"Banedag"}
 
-1. Banedag (3 produkter):
-   - For testing og trening på bane
-   - For nybegynnere og erfarne
+Hold svar korte (1-2 setninger). Svar alltid på norsk.
 
-2. Konkurranse (14 produkter):
-   - Engangslisenser for konkurranser
-   - Ulike grener og nivåer
+Eksempler:
+Bruker: "Hva koster banedag?"
+Du: "Banedag koster 220 kr for én dag."
 
-3. Passasjer/Ledsager (8 produkter):
-   - For passasjerer og ledsagere
-   - Sikkerhetskrav
+Bruker: "Jeg vil bestille"
+Du: "Perfekt! Jeg hjelper deg med å bestille.
+{"action":"order","category":"Banedag"}"
 
-4. Test (3 produkter):
-   - For testing av kjøretøy
-   - Kontrollerte forhold
-
-5. Trening (14 produkter):
-   - For treningsformål
-   - Ulike nivåer og grener
-
-   Følgende underkategorier er tilgjengelige:
-   - Konkurranse – Autoslalåm
-   - Konkurranse – Autoslalåm Ledsager
-   - Konkurranse – Bilcross (ikke junior)
-   - Konkurranse – Forenkla Konkuranseformer
-   - Konkurranse – Biltrial
-   - Konkurranse – Crosskart (ikke Junior)
-   - Konkurranse – Crosskart sprintløp
-   - Konkurranse – Offroad Challenge
-   - Konkurranse – Rally Kartleser – Regularity
-   - Konkurranse – Street Legal
-   - Konkurranse – Terreng Touring
-   - Konkurranse – Veteranløp
-   - Norsk Funsport
-   - Trening – Autoslalåm
-   - Trening – Autoslalåm Ledsager
-   - Trening – Bilcross (ikke junior)
-   - Trening – Forenkla Konkuranseformer
-   - Trening – Biltrial
-   - Trening – Crosskart (ikke Junior)
-   - Trening – Crosskart sprintløp
-   - Trening – Offroad Challenge
-   - Trening – Rally Kartleser – Regularity
-   - Trening – Street Legal
-   - Trening – Terreng Touring
-   - Trening – Veteranløp
-   - Norsk Funsport
-   - Banedager - Gatebiler
-   - Banedager - Speedtest
-   - Banedager - Lisensbiler
-   - Test - Dragrace
-   - Test - Rally
-   - Test - Rallycross
-   - Passasjer/Ledsager - Banedag
-   - Passasjer/Ledsager - Biltrial
-   - Passasjer/Ledsager - Drifting
-   - Passasjer/Ledsager - Drifting
-   - Passasjer/Ledsager - Ledsagerlisens
-   - Passasjer/Ledsager - Street Legal
-   - Passasjer/Ledsager - Street Legal forenkla
-   - Passasjer/Ledsager - Offroad Challenge
-   - Passasjer/Ledsager - Terreng touring
-
-
-Regler for svar:
-1. Hvis spørsmålet handler om noe annet enn engangslisenser, gi standardsvaret over
-2. For engangslisenser, følg denne strukturen:
-   - Avklar formål først
-   - Deretter spesifikk aktivitet
-   - Til slutt, anbefal relevant engangslisens
-
-Eksempel på avvisning:
-Bruker: "Hvordan får jeg årslisens?"
-Du: "Beklager, jeg kan kun hjelpe med engangslisenser. For andre typer lisenser, vennligst kontakt NBF direkte."
-
-Viktige regler for samtalen:
-- Spør ALLTID først om formålet (konkurranse, test, trening, etc.)
-- Spør deretter om spesifikk aktivitet/gren
-- Forklar at vi KUN tilbyr engangslisenser
-- Hold svarene korte og konkrete
-- Ett spørsmål om gangen
-- Svar på norsk
-
-Eksempel på god dialog:
-Bruker: "Jeg vil kjøre på bane"
-Du: "Hei! Hva er formålet med kjøringen - skal du trene, teste eller konkurrere?"
-
-Bruker: "Jeg skal teste bilen min"
-Du: "Da anbefaler jeg en engangslisens for banedag. Skal du kjøre på Gatebil, Speedtest eller annet arrangement?"
-
-[Fortsett dialogen basert på brukerens behov]`
+Bruker: "ja takk"
+Du: "Flott! Her er lisensene:
+{"action":"order","category":"Banedag"}"`
 
 export async function POST(req: Request) {
   try {
-    // Hent IP fra headers
-    const ip = req.headers.get("x-forwarded-for")?.split(',')[0] || 
-              req.headers.get("x-real-ip") || 
-              'anonymous'
+    const body = await req.json()
+    const { message } = body
 
-    // Sjekk rate limit bare for chat-endepunktet
-    const { success, remaining } = await rateLimiter.limit(ip)
-    
-    if (!success) {
+    if (!message) {
       return NextResponse.json(
-        { error: "Du har nådd grensen for antall spørsmål i dag. Prøv igjen i morgen." },
-        { status: 429 }
+        { error: "Mangler melding" },
+        { status: 400 }
       )
     }
 
-    const { message } = await req.json()
-
+    // Kall OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -132,19 +54,74 @@ export async function POST(req: Request) {
         { role: "user", content: message }
       ],
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 200
     })
+
+    let responseMessage = completion.choices[0].message.content || "Beklager, jeg forstod ikke det."
+    
+    // Sjekk om svaret inneholder bestillingsinfo
+    let orderData = null
+    const jsonMatch = responseMessage.match(/\{[^}]*"action"\s*:\s*"order"[^}]*\}/)
+    
+    if (jsonMatch) {
+      console.log('[CHAT] Found order JSON:', jsonMatch[0])
+      try {
+        orderData = JSON.parse(jsonMatch[0])
+        
+        // Hent lisenser fra database (MySQL er case-insensitive by default)
+        const licenses = await prisma.license.findMany({
+          where: {
+            category: {
+              contains: orderData.category
+            }
+          },
+          take: 5,
+          orderBy: { price: 'asc' }
+        })
+
+        console.log('[CHAT] Found licenses:', licenses.length)
+
+        if (licenses.length > 0) {
+          orderData.products = licenses.map(l => ({
+            id: l.id,
+            name: l.name,
+            price: l.price.toString(),
+            category: l.category
+          }))
+          
+          // Fjern JSON fra meldingen for å vise ren tekst
+          responseMessage = responseMessage.replace(jsonMatch[0], '').trim()
+          
+          console.log('[CHAT] Added products:', orderData.products.length)
+        } else {
+          console.warn('[CHAT] No licenses found for category:', orderData.category)
+        }
+      } catch (e) {
+        console.error('[CHAT] Parse error:', e)
+      }
+    }
+
+    console.log('[CHAT] Returning orderData:', orderData ? 'YES' : 'NO')
 
     return NextResponse.json({
-      message: completion.choices[0].message.content,
-      remaining
+      message: responseMessage,
+      orderData
     })
 
-  } catch (error) {
-    console.error("[CHAT_ERROR]", error)
+  } catch (error: any) {
+    console.error("[CHAT ERROR]", error?.message || error)
+    
+    // Gi bedre feilmelding
+    if (error?.message?.includes('API key')) {
+      return NextResponse.json(
+        { error: "OpenAI API nøkkel mangler eller er ugyldig" },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
-      { error: "Intern serverfeil" },
+      { error: "Teknisk feil. Prøv igjen." },
       { status: 500 }
     )
   }
-} 
+}

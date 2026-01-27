@@ -4,9 +4,35 @@ import { Decimal } from "@prisma/client/runtime/library"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { generateOrderNumber } from "@/lib/utils"
+import { rateLimiter } from "@/lib/rate-limit"
+import * as z from "zod"
+import { generateLicensePDF } from "@/lib/pdf-generator"
+import { sendLicenseReceipt } from "@/lib/postmark"
 
 const SECRET_KEY = process.env.NEXI_SECRET_TEST_KEY!
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL!
+
+// Zod validering for payment request
+const paymentSchema = z.object({
+  licenses: z.array(z.object({
+    licenseId: z.string().min(1),
+    price: z.number().positive(),
+    driverName: z.string().min(2),
+    vehicleReg: z.string().optional(),
+    clubId: z.string().min(1),
+    startDate: z.string(),
+    endDate: z.string().optional(),
+    category: z.string().min(1),
+    name: z.string().min(1),
+    subType: z.string().min(1),
+  })).min(1),
+  amount: z.number().positive(),
+  customerInfo: z.object({
+    firstName: z.string().min(2),
+    lastName: z.string().min(2),
+    phone: z.string().min(8),
+  })
+})
 
 export async function POST(req: Request) {
   try {
@@ -15,15 +41,24 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const body = await req.json()
-    console.log("1. Request body:", JSON.stringify(body, null, 2))
+    // Rate limiting for betalinger
+    const identifier = session.user.email || "anonymous"
+    const { success } = await rateLimiter.limit(identifier)
+    
+    if (!success) {
+      return new NextResponse("For mange forsøk. Prøv igjen senere.", { status: 429 })
+    }
+
+    const json = await req.json()
+    
+    // Valider input med Zod
+    const body = paymentSchema.parse(json)
 
     // Generer ordrenummer
     const orderNumber = await generateOrderNumber()
     
     // Opprett ordre for hver lisens
-    const orders = await Promise.all(body.licenses.map(async (license: any, index: number) => {
-      console.log("Creating order with license data:", license)
+    const orders = await Promise.all(body.licenses.map(async (license, index: number) => {
 
       // Først opprett lisensen
       const createdLicense = await prisma.license.create({
@@ -55,7 +90,6 @@ export async function POST(req: Request) {
         orderDate: new Date(),
       }
 
-      console.log("Order data being created:", orderData)
       return await prisma.order.create({ data: orderData })
     }))
 
@@ -133,9 +167,16 @@ ${license.vehicleReg ? `Reg.nr: ${license.vehicleReg}` : ''}`
     })
 
   } catch (error) {
-    console.error("Payment error:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Ugyldig betalingsinformasjon", details: error.errors },
+        { status: 422 }
+      )
+    }
+    
+    console.error("Payment error:", error instanceof Error ? error.message : "Unknown error")
     return NextResponse.json(
-      { error: "Kunne ikke prosessere betaling", details: error instanceof Error ? error.message : "Ukjent feil" },
+      { error: "Kunne ikke prosessere betaling" },
       { status: 500 }
     )
   }
@@ -150,8 +191,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    console.log("1. Verifiserer betaling med ID:", paymentId)
-
     const checkoutResponse = await fetch(`https://test.api.dibspayment.eu/v1/payments/${paymentId}`, {
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
@@ -160,12 +199,11 @@ export async function GET(req: Request) {
     })
 
     if (!checkoutResponse.ok) {
-      console.error("Nexi API Error:", await checkoutResponse.text())
+      console.error("Nexi API Error: Failed to fetch payment status")
       throw new Error("Kunne ikke hente betalingsstatus")
     }
 
     const paymentData = await checkoutResponse.json()
-    console.log("2. Betalingsdata fra Nexi:", JSON.stringify(paymentData, null, 2))
     
     // Oppdater søket for å finne alle ordrer som starter med paymentId
     const orders = await prisma.order.findMany({
@@ -185,12 +223,8 @@ export async function GET(req: Request) {
                        paymentData.payment.charges.length > 0 && 
                        paymentData.payment.charges[0].amount === paymentData.payment.orderDetails.amount
 
-    console.log("3. Betalingsstatus:", {
-      hasCharges: !!paymentData.payment.charges,
-      chargeAmount: paymentData.payment.charges?.[0]?.amount,
-      orderAmount: paymentData.payment.orderDetails?.amount,
-      isCompleted
-    })
+    // Sjekk om dette er første gang ordren blir fullført
+    const wasAlreadyCompleted = orders.every(order => order.status === "COMPLETED")
 
     // Oppdater hver ordre med en unik transactionId
     await Promise.all(orders.map(async (order) => {
@@ -204,7 +238,69 @@ export async function GET(req: Request) {
       })
     }))
 
-    console.log("4. Oppdatert ordrestatus til:", isCompleted ? "COMPLETED" : "FAILED")
+    // Send e-post med PDF-kvitteringer KUN første gang betaling fullføres
+    if (isCompleted && orders.length > 0 && !wasAlreadyCompleted) {
+      try {
+        // Hent full ordre-info med relasjoner
+        const fullOrders = await prisma.order.findMany({
+          where: {
+            id: { in: orders.map(o => o.id) }
+          },
+          include: {
+            license: true,
+            club: true,
+            user: true
+          }
+        })
+
+        // Generer PDF for hver lisens
+        const pdfAttachments = await Promise.all(
+          fullOrders.map(async (order, index) => {
+            const pdfBuffer = await generateLicensePDF({
+              orderId: order.orderId,
+              orderNumber: index + 1,
+              totalOrders: fullOrders.length,
+              driverName: order.driverName,
+              vehicleReg: order.vehicleReg || '',
+              customerEmail: order.customerEmail || '',
+              customerPhone: order.customerPhone || '',
+              totalAmount: Number(order.totalAmount),
+              validFrom: order.validFrom.toISOString(),
+              license: {
+                name: order.license.name,
+                category: order.license.category
+              },
+              club: {
+                name: order.club.name
+              }
+            })
+
+            const driverName = order.driverName.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+            const licenseName = order.license.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+            
+            return {
+              filename: `lisens_${index + 1}_${driverName}_${licenseName}.pdf`,
+              content: pdfBuffer.toString('base64')
+            }
+          })
+        )
+
+        // Send e-post med alle PDFer
+        const firstOrder = fullOrders[0]
+        await sendLicenseReceipt({
+          to: firstOrder.customerEmail || firstOrder.user.email || '',
+          customerName: firstOrder.driverName,
+          orderId: firstOrder.orderId.split('-')[1], // Kort ID
+          licenseCount: fullOrders.length,
+          pdfAttachments
+        })
+
+        console.log(`[EMAIL] Sent ${fullOrders.length} license PDFs to ${firstOrder.customerEmail}`)
+      } catch (emailError) {
+        console.error('[EMAIL] Failed to send receipt email:', emailError)
+        // Ikke kast feil her - betalingen er godkjent uansett
+      }
+    }
 
     return NextResponse.json({ 
       status: paymentData.payment.status,
@@ -216,9 +312,9 @@ export async function GET(req: Request) {
       }
     })
   } catch (error) {
-    console.error("Payment verification error:", error)
+    console.error("Payment verification error:", error instanceof Error ? error.message : "Unknown error")
     return NextResponse.json(
-      { error: "Kunne ikke verifisere betalingen", details: error instanceof Error ? error.message : "Ukjent feil" },
+      { error: "Kunne ikke verifisere betalingen" },
       { status: 500 }
     )
   }

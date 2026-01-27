@@ -92,6 +92,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       orders: orders.map(order => ({
+        id: order.id,
         orderId: order.orderId,
         licenseName: order.license.name,
         status: order.status,

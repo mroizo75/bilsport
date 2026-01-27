@@ -1,15 +1,12 @@
 "use client"
 
-import { useEffect, useState, Suspense, useRef } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
 import { Loader2, CheckCircle, Download, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import { toast } from "@/hooks/use-toast"
 import { useCart } from "@/hooks/use-cart"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
@@ -39,7 +36,6 @@ function CompletePageContent() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isVerified, setIsVerified] = useState(false)
-  const receiptRefs = useRef<(HTMLDivElement | null)[]>([])
   const searchParams = useSearchParams()
   const paymentId = searchParams.get("paymentId") || searchParams.get("pid")
   const router = useRouter()
@@ -48,6 +44,24 @@ function CompletePageContent() {
   useEffect(() => {
     const verifyPayment = async () => {
       if (!paymentId || isVerified) return
+
+      // Sjekk om denne betalingen allerede er verifisert i session
+      const verifiedKey = `payment_verified_${paymentId}`
+      if (typeof window !== 'undefined') {
+        const alreadyVerified = sessionStorage.getItem(verifiedKey)
+        if (alreadyVerified) {
+          console.log('[PAYMENT] Already verified, loading orders from session')
+          try {
+            const savedOrders = JSON.parse(alreadyVerified)
+            setOrders(savedOrders)
+            setIsVerified(true)
+            setIsLoading(false)
+            return
+          } catch (e) {
+            console.error('[PAYMENT] Failed to parse saved orders')
+          }
+        }
+      }
 
       try {
         setIsVerified(true)
@@ -60,11 +74,6 @@ function CompletePageContent() {
         
         if (data.error) {
           throw new Error(data.error)
-        }
-
-        if (data.status === "COMPLETED") {
-          clearCart()
-          setOrders(data.orders || [])
         }
 
         if (!data.orderIds || data.orderIds.length === 0) {
@@ -84,6 +93,16 @@ function CompletePageContent() {
 
         // Sett ordredetaljene først
         setOrders(orderDetails)
+        
+        // Lagre i session storage for å unngå re-verifisering
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(verifiedKey, JSON.stringify(orderDetails))
+        }
+        
+        // TØM HANDLEKURVEN - både zustand og localStorage
+        console.log('[CART] Clearing cart after successful payment')
+        clearCart()
+        localStorage.removeItem('savedCart') // For guest users
         
         toast({
           title: "Betaling fullført",
@@ -106,64 +125,44 @@ function CompletePageContent() {
     verifyPayment()
   }, [paymentId, isVerified, router, toast, clearCart])
 
-  const handleDownloadReceipt = async () => {
-    if (orders.length === 0 || !receiptRefs.current.length) return
+  const handleDownloadReceipt = async (orderIndex?: number) => {
+    if (orders.length === 0) return
 
     try {
-      // Skjul knapper midlertidig
-      const downloadButton = document.getElementById('downloadButton')
-      const dashboardButton = document.getElementById('dashboardButton')
-      if (downloadButton) downloadButton.style.display = 'none'
-      if (dashboardButton) dashboardButton.style.display = 'none'
+      // Generer PDF for spesifikk ordre eller alle
+      const ordersToProcess = orderIndex !== undefined ? [orderIndex] : orders.map((_, i) => i)
 
-      // Vent på at bildene skal lastes
-      await new Promise(resolve => setTimeout(resolve, 500))
+      for (const i of ordersToProcess) {
+        const order = orders[i]
+        
+        // Hent PDF fra API (samme som sendes på email)
+        const response = await fetch(`/api/payment/receipt/${order.id}`)
+        
+        if (!response.ok) {
+          throw new Error(`Kunne ikke generere PDF for ordre ${order.orderId}`)
+        }
 
-      // Opprett PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      })
-
-      // Generer PDF for hver ordre
-      for (let i = 0; i < orders.length; i++) {
-        const receiptElement = receiptRefs.current[i]
-        if (!receiptElement) continue
-
-        const canvas = await html2canvas(receiptElement, {
-          scale: 2,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff'
-        })
-
-        const imgData = canvas.toDataURL('image/png')
-        if (i > 0) pdf.addPage()
-
-        // Legg til marger i PDF
-        const margin = 10
-        const pdfWidth = pdf.internal.pageSize.getWidth()
-        const pdfHeight = pdf.internal.pageSize.getHeight()
-        const imgWidth = pdfWidth - (margin * 2)
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-        pdf.addImage(
-          imgData,
-          'PNG',
-          margin,
-          margin,
-          imgWidth,
-          imgHeight
-        )
+        // Last ned PDF
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `lisens_${i + 1}_${order.driverName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        
+        // Liten pause mellom nedlastinger
+        if (ordersToProcess.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
       }
 
-      // Gjenopprett knappene
-      if (downloadButton) downloadButton.style.display = ''
-      if (dashboardButton) dashboardButton.style.display = ''
-
-      pdf.save(`kvittering-${orders[0].orderId.split('-')[0]}.pdf`)
+      toast({
+        title: "PDF lastet ned",
+        description: `${ordersToProcess.length} lisens${ordersToProcess.length > 1 ? 'er' : ''} lastet ned som separate PDF-filer`,
+      })
     } catch (error) {
       console.error('Feil ved generering av PDF:', error)
       toast({
@@ -211,11 +210,7 @@ function CompletePageContent() {
       <div className="container max-w-3xl">
         {orders.map((order, index) => (
           <Card key={order.id} className="mb-8">
-            <div ref={(el: HTMLDivElement | null) => {
-              if (el) {
-                receiptRefs.current[index] = el
-              }
-            }} className="p-6">
+            <div className="p-6">
               <CardHeader className="text-center space-y-6 pb-8">
                 <svg 
                   viewBox="0 0 24 24" 
@@ -231,6 +226,11 @@ function CompletePageContent() {
                 </svg>
                 <div className="space-y-2">
                   <CardTitle className="text-2xl font-bold">Betaling Gjennomført</CardTitle>
+                  {orders.length > 1 && (
+                    <p className="text-lg font-semibold text-primary">
+                      Lisens {index + 1} av {orders.length}
+                    </p>
+                  )}
                   <p className="text-muted-foreground">
                     Ordrenummer: {order.orderId}
                   </p>
@@ -291,9 +291,29 @@ function CompletePageContent() {
                   <h3 className="text-lg font-semibold border-b pb-2">Betalingsinformasjon</h3>
                   <div className="grid gap-3">
                     <div className="flex justify-between text-lg">
-                      <span className="font-medium">Total:</span>
+                      <span className="font-medium">Beløp for denne lisensen:</span>
                       <span className="font-bold">{formatPrice(order.totalAmount)}</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Viktig informasjon */}
+                <div className="space-y-4 bg-amber-50 dark:bg-amber-950 p-4 rounded-lg border-2 border-amber-200 dark:border-amber-800">
+                  <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100">
+                    ⚠️ VIKTIG INFORMASJON
+                  </h3>
+                  <div className="space-y-3 text-sm text-amber-900 dark:text-amber-100">
+                    <p className="font-bold text-base">
+                      ENGANGSLISENSER FOR BANEDAG ETTER GODKJENNING AV NORGES BILSPORTFORBUND (NBF)
+                    </p>
+                    <ul className="space-y-2 list-disc list-inside pl-2">
+                      <li>Banedagen må være arrangert i henhold til NBFs reglement og av klubb/avdeling tilsluttet NBF.</li>
+                      <li>For denne lisensen kreves IKKE medlemskap i klubb/avdeling tilsluttet NBF.</li>
+                      <li>Fører er gjennom denne lisensen forsikret på samme måte som ved vanlig helårslisens, men kun for gjeldende banedag.</li>
+                      <li>For å få utstedt engangslisens kan ikke førerretten for førerkortfri motorvogn være midlertidig tilbakekalt eller fratatt føreren (Generelle bestemmelser Art. 12.2.2 e).</li>
+                      <li>Det kan heller ikke utstedes engangslisens til person eller bil der det er gjeldende dom om suspensjon eller eksklusjon (Generelle bestemmelser Art. 9.6.3).</li>
+                      <li className="font-bold">Lisensen skal være datert, og kun gyldig i en banedag.</li>
+                    </ul>
                   </div>
                 </div>
 
@@ -302,7 +322,7 @@ function CompletePageContent() {
                   <div className="w-[200px] h-[60px] relative">
                     <Image
                       src="/NBF_logo.png"
-                      alt="Bilsportlisens Logo"
+                      alt="NBF Logo"
                       fill
                       style={{ objectFit: 'contain' }}
                       className="opacity-80"
@@ -310,6 +330,20 @@ function CompletePageContent() {
                     />
                   </div>
                 </div>
+                
+                {/* Last ned denne lisensen */}
+                {orders.length > 1 && (
+                  <div className="pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => handleDownloadReceipt(index)}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Last ned kun denne lisensen (PDF)
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </div>
           </Card>
@@ -320,21 +354,19 @@ function CompletePageContent() {
           <Button 
             className="flex-1" 
             asChild
-            id="dashboardButton"
           >
-            <Link href="/dashboard">
+            <Link href="/products">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Til Mine Lisenser
+              Handle flere lisenser
             </Link>
           </Button>
           <Button 
             variant="outline" 
             className="flex-1"
-            onClick={handleDownloadReceipt}
-            id="downloadButton"
+            onClick={() => handleDownloadReceipt()}
           >
             <Download className="mr-2 h-4 w-4" />
-            Last ned kvittering
+            Last ned alle lisenser ({orders.length} separate PDFer)
           </Button>
         </div>
       </div>

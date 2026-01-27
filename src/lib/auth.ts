@@ -31,7 +31,15 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await db.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: credentials.email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+            role: true,
+            phone: true
+          }
         })
 
         if (!user || !user.password) {
@@ -49,16 +57,21 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
-          phone: user.phone,
+          phone: user.phone || null,
         }
       }
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session: updatedSession }) {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.phone = user.phone
+      }
+      // Oppdater token når session oppdateres (f.eks. etter profilendring)
+      if (trigger === "update" && updatedSession) {
+        token.phone = updatedSession.phone
       }
       return token
     },

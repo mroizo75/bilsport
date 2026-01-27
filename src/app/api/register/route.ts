@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import bcrypt from "bcrypt"
 import * as z from "zod"
+import { rateLimiter } from "@/lib/rate-limit"
 
 const userSchema = z.object({
   name: z.string().min(2).max(50),
@@ -11,6 +12,14 @@ const userSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // Rate limiting
+    const identifier = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "anonymous"
+    const { success } = await rateLimiter.limit(identifier)
+    
+    if (!success) {
+      return new NextResponse("For mange forsøk. Prøv igjen senere.", { status: 429 })
+    }
+
     const json = await req.json()
     const body = userSchema.parse(json)
 
@@ -24,7 +33,7 @@ export async function POST(req: Request) {
       return new NextResponse("E-post er allerede i bruk", { status: 409 })
     }
 
-    const hashedPassword = await bcrypt.hash(body.password, 10)
+    const hashedPassword = await bcrypt.hash(body.password, 12)
 
     const user = await db.user.create({
       data: {

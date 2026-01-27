@@ -36,11 +36,17 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (session?.user?.phone) {
+      console.log('[CHECKOUT] Setting phone from session:', session.user.phone)
       setPhone(session.user.phone)
+    } else {
+      console.log('[CHECKOUT] No phone in session, using default +47')
     }
   }, [session])
 
   useEffect(() => {
+    // Kun kjør på klient-siden
+    if (typeof window === 'undefined') return
+    
     // Gjenopprett handlekurven etter innlogging
     const savedCart = localStorage.getItem('savedCart')
     if (session && savedCart) {
@@ -71,7 +77,7 @@ export default function CheckoutPage() {
     }
   }, [session, addItem, clearCart])
 
-  if (items.length === 0) {
+  if (items.length === 0 && typeof window !== 'undefined') {
     router.push("/")
     return null
   }
@@ -86,9 +92,9 @@ export default function CheckoutPage() {
               <h1 className="text-2xl font-bold">Checkout</h1>
               <Button 
                 variant="outline"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/products")}
               >
-                Fortsett å handle
+                ← Tilbake til produkter
               </Button>
             </div>
             <CheckoutLogin />
@@ -208,7 +214,7 @@ export default function CheckoutPage() {
               onClick={() => router.push("/products")}
               className="mb-4"
             >
-              Fortsett å handle
+              ← Legg til flere lisenser
             </Button>
           </div>
 
@@ -349,16 +355,16 @@ export default function CheckoutPage() {
                       <Button 
                         variant="outline"
                         className="w-full sm:w-1/2"
-                        onClick={() => router.push("/")}
+                        onClick={() => router.push("/products")}
                       >
-                        Fortsett å handle
+                        ← Legg til flere
                       </Button>
                       <Button 
                         className="w-full sm:w-1/2"
                         onClick={() => setCurrentStep("payment")}
                         disabled={!acceptedTerms}
                       >
-                        Fortsett til betaling
+                        Fortsett til betaling →
                       </Button>
                     </div>
                   </div>

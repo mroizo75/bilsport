@@ -233,46 +233,48 @@ export default function LicensesPage() {
         <TabsContent value="active" className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedActiveLicenses.map((license) => (
-              <Dialog key={license.id}>
-                <DialogTrigger asChild>
-                  <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-                    <CardHeader className="p-4 sm:p-6">
-                      <CardTitle className="flex items-center justify-between text-base">
-                        <span className="font-semibold truncate mr-2">{license.licenseName}</span>
-                        <Badge 
-                          className={sortedActiveLicenses.includes(license) ? 
-                            "bg-green-500 hover:bg-green-600 whitespace-nowrap" : 
-                            "bg-red-500 hover:bg-red-600 whitespace-nowrap"}
-                        >
-                          {sortedActiveLicenses.includes(license) ? "Aktiv" : "Utgått"}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-0">
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm">
-                          <UserIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{license.driverName}</span>
+              <div key={license.id}>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                      <CardHeader className="p-4 sm:p-6">
+                        <CardTitle className="flex items-center justify-between text-base">
+                          <span className="font-semibold truncate mr-2">{license.licenseName}</span>
+                          <Badge 
+                            className={sortedActiveLicenses.includes(license) ? 
+                              "bg-green-500 hover:bg-green-600 whitespace-nowrap" : 
+                              "bg-red-500 hover:bg-red-600 whitespace-nowrap"}
+                          >
+                            {sortedActiveLicenses.includes(license) ? "Aktiv" : "Utgått"}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 sm:p-6 pt-0">
+                        <div className="space-y-2">
+                          <div className="flex items-center text-sm">
+                            <UserIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="truncate">{license.driverName}</span>
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <CarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="truncate">{license.vehicleReg}</span>
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <CalendarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="truncate">
+                              {new Date(license.validFrom).toLocaleDateString('no-NO')}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center text-sm">
-                          <CarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{license.vehicleReg}</span>
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <CalendarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">
-                            {new Date(license.validFrom).toLocaleDateString('no-NO')}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <LicenseDialog 
-                  license={license} 
-                  isActive={sortedActiveLicenses.includes(license)} 
-                />
-              </Dialog>
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <LicenseDialog 
+                    license={license} 
+                    isActive={sortedActiveLicenses.includes(license)} 
+                  />
+                </Dialog>
+              </div>
             ))}
           </div>
           
@@ -286,46 +288,48 @@ export default function LicensesPage() {
         <TabsContent value="expired" className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedExpiredLicenses.map((license) => (
-              <Dialog key={license.id}>
-                <DialogTrigger asChild>
-                  <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-                    <CardHeader className="p-4 sm:p-6">
-                      <CardTitle className="flex items-center justify-between text-base">
-                        <span className="font-semibold truncate mr-2">{license.licenseName}</span>
-                        <Badge 
-                          className={sortedActiveLicenses.includes(license) ? 
-                            "bg-green-500 hover:bg-green-600 whitespace-nowrap" : 
-                            "bg-red-500 hover:bg-red-600 whitespace-nowrap"}
-                        >
-                          {sortedActiveLicenses.includes(license) ? "Aktiv" : "Utgått"}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-0">
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm">
-                          <UserIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{license.driverName}</span>
+              <div key={license.id}>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                      <CardHeader className="p-4 sm:p-6">
+                        <CardTitle className="flex items-center justify-between text-base">
+                          <span className="font-semibold truncate mr-2">{license.licenseName}</span>
+                          <Badge 
+                            className={sortedActiveLicenses.includes(license) ? 
+                              "bg-green-500 hover:bg-green-600 whitespace-nowrap" : 
+                              "bg-red-500 hover:bg-red-600 whitespace-nowrap"}
+                          >
+                            {sortedActiveLicenses.includes(license) ? "Aktiv" : "Utgått"}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 sm:p-6 pt-0">
+                        <div className="space-y-2">
+                          <div className="flex items-center text-sm">
+                            <UserIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="truncate">{license.driverName}</span>
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <CarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="truncate">{license.vehicleReg}</span>
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <CalendarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="truncate">
+                              {new Date(license.validFrom).toLocaleDateString('no-NO')}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center text-sm">
-                          <CarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">{license.vehicleReg}</span>
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <CalendarIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          <span className="truncate">
-                            {new Date(license.validFrom).toLocaleDateString('no-NO')}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </DialogTrigger>
-                <LicenseDialog 
-                  license={license} 
-                  isActive={sortedActiveLicenses.includes(license)} 
-                />
-              </Dialog>
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <LicenseDialog 
+                    license={license} 
+                    isActive={sortedActiveLicenses.includes(license)} 
+                  />
+                </Dialog>
+              </div>
             ))}
           </div>
           

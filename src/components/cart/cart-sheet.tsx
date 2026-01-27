@@ -62,8 +62,8 @@ export function CartSheet() {
               <ShoppingCart className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
               <span className="text-lg font-medium">Handlekurven er tom</span>
               <Button asChild variant="link" className="text-sm text-muted-foreground">
-                <Link href="/">
-                  Fortsett å handle
+                <Link href="/products">
+                  Se lisenser
                 </Link>
               </Button>
             </div>

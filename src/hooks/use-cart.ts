@@ -62,6 +62,7 @@ export const useCartStore = create(
     }),
     {
       name: 'cart-storage',
+      skipHydration: true, // Unngå SSR-problemer
     }
   )
 )
@@ -85,8 +86,13 @@ export function useCart() {
     updateQuantity: (itemId: string, quantity: number) => 
       store.updateQuantity(userId, itemId, quantity),
     clearCart: () => {
-      console.log("clearCart called for userId:", userId)
+      console.log("[CART] clearCart called for userId:", userId)
       store.clearCart(userId)
+      // Tøm også localStorage for guest users
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('savedCart')
+        console.log("[CART] Cleared localStorage savedCart")
+      }
     },
   }
 } 

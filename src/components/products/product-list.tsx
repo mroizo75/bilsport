@@ -125,12 +125,25 @@ export default function ProductList() {
       // Legg til i handlekurven FØR vi lagrer og redirecter
       addItem(productData)
 
-      // Lagre handlekurven i localStorage
-      const cartItems = [productData]
+      // Hent eksisterende handlekurv fra localStorage og legg til ny lisens
+      const existingSavedCart = localStorage.getItem('savedCart')
+      const cartItems = existingSavedCart ? JSON.parse(existingSavedCart) : []
+      cartItems.push(productData)
       localStorage.setItem('savedCart', JSON.stringify(cartItems))
       
-      // Redirect til checkout med returnTo parameter
-      router.push('/checkout?returnTo=/checkout')
+      toast({
+        title: "✅ Lagt til i handlekurv",
+        description: `${selectedLicense?.name} er lagt til. Logg inn for å fullføre kjøpet.`,
+        duration: 3000
+      })
+
+      // Reset kun fører/bil/dato (behold valgt lisenstype)
+      setDriverName("")
+      setVehicleReg("")
+      setStartDate(undefined)
+      setEndDate(undefined)
+      
+      // IKKE redirect automatisk - la brukeren legge til flere
       return
     }
 
@@ -172,20 +185,18 @@ export default function ProductList() {
       })
 
       toast({
-        title: "Lagt til i handlekurv",
-        description: `${selectedLicense.name} er lagt til i handlekurven.`,
+        title: "✅ Lagt til i handlekurv",
+        description: `${selectedLicense.name} er lagt til. Legg til flere eller gå til kassen.`,
+        duration: 3000
       })
 
-      // Reset form
-      setSelectedSubType("")
+      // Reset kun fører/bil/dato (behold valgt lisenstype)
       setDriverName("")
       setVehicleReg("")
       setStartDate(undefined)
       setEndDate(undefined)
-      setStep(1)
-
-      // Naviger direkte til checkout
-      router.push("/checkout")
+      
+      // IKKE naviger til checkout automatisk
     } catch (error) {
       console.error('Error:', error)
       toast({
@@ -199,11 +210,38 @@ export default function ProductList() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto space-y-4">
+      {/* Handlekurv status */}
+      {items.length > 0 && (
+        <Card className="border-2 border-primary bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">
+                  🛒 {items.length} lisens{items.length !== 1 ? 'er' : ''} i handlekurven
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Total: {formatPrice(items.reduce((sum, item) => sum + item.price, 0))}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => router.push('/checkout')}
+                >
+                  Se handlekurv
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border shadow-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-xl sm:text-2xl text-center">
-            Velg lisens
+            {items.length > 0 ? 'Legg til flere lisenser' : 'Velg lisens'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
@@ -304,7 +342,13 @@ export default function ProductList() {
                     <label className="text-sm font-medium">Fra dato</label>
                     <DatePicker 
                       date={startDate}
-                      setDate={setStartDate}
+                      setDate={(date) => {
+                        setStartDate(date)
+                        // Hvis sluttdato er før ny startdato, nullstill sluttdato
+                        if (endDate && date && endDate < date) {
+                          setEndDate(undefined)
+                        }
+                      }}
                       label="Velg startdato"
                     />
                   </div>
@@ -314,18 +358,25 @@ export default function ProductList() {
                       date={endDate}
                       setDate={setEndDate}
                       label="Velg sluttdato"
+                      fromDate={startDate ? new Date(startDate.getTime() + 24 * 60 * 60 * 1000) : new Date()}
                     />
+                    {startDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Må være etter {startDate.toLocaleDateString('no-NO')}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
             </>
           )}
         </CardContent>
-        <CardFooter className="px-4 sm:px-6 py-4">
+        <CardFooter className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row gap-3">
           <Button
             className="w-full"
             disabled={!selectedClub || !activeCategory || !selectedSubType || !driverName || !vehicleReg || !startDate || isLoading}
             onClick={handlePurchase}
+            variant={items.length > 0 ? "outline" : "default"}
           >
             {isLoading ? (
               <>
@@ -333,9 +384,18 @@ export default function ProductList() {
                 Legger til...
               </>
             ) : (
-              `Kjøp lisens${selectedLicense ? ` - ${formatPrice(selectedLicense.price)}` : ''}`
+              `Legg til i handlekurv${selectedLicense ? ` - ${formatPrice(selectedLicense.price)}` : ''}`
             )}
           </Button>
+          
+          {items.length > 0 && (
+            <Button
+              className="w-full"
+              onClick={() => router.push('/checkout')}
+            >
+              {session ? `Gå til kassen (${items.length})` : `Logg inn for å kjøpe (${items.length})`}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

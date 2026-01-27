@@ -2,9 +2,18 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetEmail } from "@/lib/mail"
 import crypto from "crypto"
+import { rateLimiter } from "@/lib/rate-limit"
 
 export async function POST(req: Request) {
   try {
+    // Rate limiting for å forhindre email bombing
+    const identifier = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "anonymous"
+    const { success } = await rateLimiter.limit(identifier)
+    
+    if (!success) {
+      return new NextResponse("For mange forsøk. Prøv igjen senere.", { status: 429 })
+    }
+
     const { email } = await req.json()
 
     // Finn bruker
@@ -21,16 +30,19 @@ export async function POST(req: Request) {
     const resetToken = crypto.randomBytes(32).toString("hex")
     const resetTokenExpiry = new Date(Date.now() + 3600000) // 1 time
 
-    // Lagre token i databasen
+    // Hash token før lagring i database (sikkerhet)
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+
+    // Lagre hashet token i databasen
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetToken,
+        resetToken: hashedToken,
         resetTokenExpiry
       }
     })
 
-    // Send e-post med reset-lenke
+    // Send e-post med unhashed token (kun mottaker har tilgang)
     await sendPasswordResetEmail(
       user.email,
       `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`

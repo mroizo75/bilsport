@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 
 export async function DELETE(
   request: Request,
-  context: { params: { clubId: string } }
+  context: { params: Promise<{ clubId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,7 +13,7 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const { clubId } = context.params
+    const { clubId } = await context.params
 
     await prisma.club.delete({
       where: { id: clubId }
@@ -27,9 +27,11 @@ export async function DELETE(
 
 export async function GET(
   req: Request,
-  { params }: { params: { clubId: string } }
+  { params }: { params: Promise<{ clubId: string }> }
 ) {
   try {
+    const { clubId } = await params
+    
     const session = await getServerSession(authOptions)
     if (!session) {
       const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
@@ -45,7 +47,7 @@ export async function GET(
 
     const club = await prisma.club.findUnique({
       where: {
-        id: params.clubId
+        id: clubId
       }
     })
 
@@ -68,9 +70,11 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { clubId: string } }
+  { params }: { params: Promise<{ clubId: string }> }
 ) {
   try {
+    const { clubId } = await params
+    
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -84,7 +88,7 @@ export async function PATCH(
 
     const updatedClub = await prisma.club.update({
       where: {
-        id: params.clubId
+        id: clubId
       },
       data: {
         name: body.name,

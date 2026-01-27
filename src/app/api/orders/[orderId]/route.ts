@@ -5,9 +5,11 @@ import { authOptions } from "@/lib/auth"
 
 export async function GET(
   req: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const { orderId } = await params
+    
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return new NextResponse(
@@ -18,7 +20,7 @@ export async function GET(
 
     const order = await prisma.order.findUnique({
       where: { 
-        orderId: params.orderId 
+        orderId: orderId 
       },
       include: {
         license: true,

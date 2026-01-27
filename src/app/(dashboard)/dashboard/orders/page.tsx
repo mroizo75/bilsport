@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/utils"
-import { CalendarIcon, CarIcon, UserIcon } from "lucide-react"
+import { CalendarIcon, CarIcon, UserIcon, Download } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Order {
+  id: string
   orderId: string
   licenseName: string
   status: string
@@ -22,6 +25,46 @@ interface Order {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  const handleDownloadPDF = async (order: Order) => {
+    try {
+      setDownloadingId(order.id)
+      
+      // Hent PDF fra API
+      const response = await fetch(`/api/payment/receipt/${order.id}`)
+      
+      if (!response.ok) {
+        throw new Error('Kunne ikke laste ned PDF')
+      }
+
+      // Last ned PDF
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `lisens_${order.driverName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${order.orderId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "PDF lastet ned",
+        description: "Lisenskvitteringen er lastet ned",
+      })
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      toast({
+        title: "Kunne ikke laste ned PDF",
+        description: "Prøv igjen senere",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -130,13 +173,25 @@ export default function OrdersPage() {
                   <span className="text-sm text-muted-foreground">{order.clubName}</span>
                   <span className="font-semibold">{formatPrice(order.totalAmount)}</span>
                 </div>
+                {order.status === 'COMPLETED' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleDownloadPDF(order)}
+                    disabled={downloadingId === order.id}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {downloadingId === order.id ? 'Laster ned...' : 'Last ned kvittering'}
+                  </Button>
+                )}
               </CardContent>
             </div>
 
             {/* Desktop-visning */}
             <div className="hidden sm:block">
               <CardContent className="p-6">
-                <div className="grid grid-cols-7 gap-4 items-center">
+                <div className="grid grid-cols-8 gap-4 items-center">
                   <div className="col-span-2">
                     <div className="font-semibold">{order.licenseName}</div>
                     <div className="text-sm text-muted-foreground">#{order.orderId}</div>
@@ -161,6 +216,19 @@ export default function OrdersPage() {
                     <Badge variant={order.status === 'COMPLETED' ? 'outline' : 'destructive'}>
                       {order.status === 'COMPLETED' ? 'Fullført' : 'Avbrutt'}
                     </Badge>
+                  </div>
+                  <div className="text-right">
+                    {order.status === 'COMPLETED' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDownloadPDF(order)}
+                        disabled={downloadingId === order.id}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloadingId === order.id ? 'Laster...' : 'PDF'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

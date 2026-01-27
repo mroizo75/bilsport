@@ -15,7 +15,7 @@ function LoginForm() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const callbackUrl = searchParams.get('callbackUrl') || '/products'
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
