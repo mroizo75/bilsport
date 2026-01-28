@@ -1,5 +1,6 @@
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
+import { ContactDialog } from "@/components/contact-dialog"
 
 export function Footer() {
   return (
@@ -26,10 +27,8 @@ export function Footer() {
                     Om Bilsportlisens
                   </Link>
                 </li>
-                <li>
-                  <Link href="/contact" className="text-sm text-muted-foreground hover:text-primary">
-                    Kontakt oss
-                  </Link>
+                <li className="flex justify-center">
+                  <ContactDialog triggerVariant="link" triggerLabel="Kontakt oss" />
                 </li>
               </ul>
             </div>

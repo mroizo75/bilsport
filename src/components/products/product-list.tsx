@@ -247,7 +247,7 @@ export default function ProductList() {
         <CardContent className="space-y-4 sm:space-y-6">
           {/* Klubb select */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Velg klubb</label>
+            <label className="text-sm font-medium">Velg arrangørklubb</label>
             <Select
               value={selectedClub}
               onValueChange={setSelectedClub}

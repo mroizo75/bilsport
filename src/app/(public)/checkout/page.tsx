@@ -155,6 +155,20 @@ export default function CheckoutPage() {
         vehicleReg: item.vehicleReg
       }))
 
+      const fullName = session?.user?.name?.trim() || ""
+      const nameParts = fullName.split(/\s+/).filter(Boolean)
+
+      let firstName = ""
+      let lastName = ""
+
+      if (nameParts.length === 1) {
+        firstName = nameParts[0]
+        lastName = nameParts[0]
+      } else if (nameParts.length > 1) {
+        firstName = nameParts[0]
+        lastName = nameParts.slice(1).join(" ")
+      }
+
       const response = await fetch("/api/payment", {
         method: "POST",
         headers: {
@@ -163,10 +177,10 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           amount: total,
           customerInfo: {
-            firstName: session?.user?.name?.split(' ')[0] || '',
-            lastName: session?.user?.name?.split(' ').slice(1).join(' ') || '',
-            email: session?.user?.email || '',
-            phone: phone,
+            firstName,
+            lastName,
+            email: session?.user?.email || "",
+            phone,
           },
           licenses: licenses
         })

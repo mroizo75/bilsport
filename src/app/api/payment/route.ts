@@ -28,8 +28,8 @@ const paymentSchema = z.object({
   })).min(1),
   amount: z.number().positive(),
   customerInfo: z.object({
-    firstName: z.string().min(2),
-    lastName: z.string().min(2),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
     phone: z.string().min(8),
   })
 })
