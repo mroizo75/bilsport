@@ -36,10 +36,42 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (session?.user?.phone) {
-      console.log('[CHECKOUT] Setting phone from session:', session.user.phone)
       setPhone(session.user.phone)
-    } else {
-      console.log('[CHECKOUT] No phone in session, using default +47')
+      return
+    }
+
+    if (!session) {
+      return
+    }
+
+    let isActive = true
+
+    const loadProfilePhone = async () => {
+      try {
+        const response = await fetch("/api/user/profile", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = (await response.json()) as { phone?: string | null }
+        if (isActive && data.phone) {
+          setPhone(data.phone)
+        }
+      } catch {
+        // Ignorer feil – brukeren kan alltid skrive inn nummer manuelt
+      }
+    }
+
+    loadProfilePhone()
+
+    return () => {
+      isActive = false
     }
   }, [session])
 
